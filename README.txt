@@ -22,9 +22,7 @@ Quem tem acesso: Qualquer pessoa.
 Copie a URL /exec.
 
 4) APLICATIVO
-Abra Index.html e localize:
-const API_URL = 'COLE_AQUI_A_URL_DO_WEB_APP';
-Substitua pelo endereço /exec do Apps Script.
+A URL /exec fornecida já está configurada no Index.html.
 
 5) USUÁRIOS
 Na aba USERS, cadastre:
