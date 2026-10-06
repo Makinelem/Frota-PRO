@@ -110,7 +110,38 @@ function brDate(v){if(!v)return''; const s=String(v); return s.includes('T')?s.s
 function num(v){return Number(String(v??'').replace(/\./g,'').replace(',','.'))}
 function money(v){return num(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
-async function api(action,payload={}){if(!API_URL||API_URL.includes('COLE_AQUI'))throw new Error('Configure a URL do Apps Script em API_URL.');const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...payload})});const j=await r.json();if(!j.ok)throw new Error(j.error||'Erro no servidor');return j}
+async function api(action, payload = {}) {
+  if (!API_URL || API_URL.includes('COLE_AQUI')) {
+    throw new Error('Configure a URL do Apps Script em API_URL.');
+  }
+
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8'
+    },
+    body: JSON.stringify({
+      action,
+      ...payload
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      'Erro de comunicação com o servidor: HTTP ' + response.status
+    );
+  }
+
+  const data = await response.json();
+
+  if (!data.ok) {
+    throw new Error(data.error || 'Erro no servidor');
+  }
+
+  return data;
+}
+
 function msg(id,t,ok=false){document.getElementById(id).innerHTML='<div class="'+(ok?'ok':'error')+'">'+esc(t)+'</div>'}
 function fillSelects(){const opts='<option value="">Selecione</option>'+state.veiculos.map(v=>`<option value="${esc(v.nome)}">${esc(v.nome)}${v.placa?' — '+esc(v.placa):''}</option>`).join('');aVeiculo.innerHTML=opts;mVeiculo.innerHTML=opts}
 function render(){fillSelects();veiculosBody.innerHTML=state.veiculos.map(v=>`<tr><td>${esc(v.nome)}</td><td>${esc(v.placa)}</td><td>${esc(v.ano)}</td><td><button class="btn alt" onclick="editV('${esc(v.id)}')">Editar</button> <button class="btn danger" onclick="delV('${esc(v.id)}')">Excluir</button></td></tr>`).join('')||'<tr><td colspan="4">Nenhum veículo.</td></tr>';
