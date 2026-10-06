@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Frota PRO</title>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#f4f6f8;--card:#fff;--text:#17202a;--muted:#6b7280;--primary:#075985;--primary2:#0ea5e9;--danger:#b91c1c;--border:#dbe2e8}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+header{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;padding:18px 16px;position:sticky;top:0;z-index:5}
+.header-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+h1{margin:0;font-size:23px}.user-label{font-size:12px;opacity:.9}
+main{max-width:900px;margin:auto;padding:16px 14px 90px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:15px;margin-bottom:14px;box-shadow:0 2px 8px #0000000a}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}
+label{font-size:13px;font-weight:700}input,select{width:100%;padding:12px;border:1px solid #cbd5df;border-radius:10px;background:#fff;font-size:16px}
+button{border:0;border-radius:10px;padding:11px 14px;font-weight:700;cursor:pointer}
+.btn{background:var(--primary);color:#fff}.btn.alt{background:#e8f4fb;color:#075985}.btn.danger{background:#fee2e2;color:#991b1b}.btn.gray{background:#eef1f4;color:#374151}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.section-title{font-size:18px;font-weight:800;margin:0 0 12px}
+.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:620px;background:#fff}th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;font-size:13px}th{background:#f1f5f9}
+.hidden{display:none!important}.error{color:var(--danger);font-size:13px;margin-top:8px}.ok{color:#166534;font-size:13px;margin-top:8px}
+.nav{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.nav button{background:#fff;border:1px solid var(--border);color:#334155}
+.nav button.active{background:#075985;color:#fff;border-color:#075985}
+.login{min-height:100vh;display:grid;place-items:center;padding:18px;background:linear-gradient(135deg,#061b2d,#0ea5e9)}
+.login-box{width:min(430px,100%);background:#fff;border-radius:18px;padding:24px;box-shadow:0 20px 60px #0006}
+.login-box h1{text-align:center;color:#075985;margin-bottom:5px}.login-box p{text-align:center;color:var(--muted);margin-top:0}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.field.full{grid-column:auto}.nav{grid-template-columns:repeat(2,1fr)}main{padding:12px 10px 80px}.card{padding:13px}}
+</style>
+</head>
+<body>
+<section id="loginView" class="login">
+  <div class="login-box">
+    <h1>Frota PRO</h1>
+    <p>Acesso ao sistema</p>
+    <form id="loginForm">
+      <div class="field"><label>Nome ou e-mail</label><input id="loginUser" autocomplete="username" required></div>
+      <div class="field" style="margin-top:10px"><label>Senha</label><input id="loginPass" type="password" autocomplete="current-password" required></div>
+      <button class="btn" style="width:100%;margin-top:14px" type="submit">Entrar</button>
+      <div id="loginMsg"></div>
+    </form>
+  </div>
+</section>
+
+<section id="appView" class="hidden">
+<header><div class="header-row"><div><h1>Frota PRO</h1><div id="loggedUser" class="user-label"></div></div><button id="logoutBtn" class="btn gray">Sair</button></div></header>
+<main>
+  <div class="nav">
+    <button data-page="veiculos" class="active">Veículos</button>
+    <button data-page="abastecimento">Abastecimento</button>
+    <button data-page="manutencao">Manutenção</button>
+    <button id="refreshBtn">Atualizar</button>
+  </div>
+
+  <section id="page-veiculos" class="page">
+    <div class="card"><h2 class="section-title">Veículos</h2>
+      <form id="veiculoForm" class="grid">
+        <input type="hidden" id="veiculoId">
+        <div class="field"><label>Nome</label><input id="vNome" required></div>
+        <div class="field"><label>Placa</label><input id="vPlaca"></div>
+        <div class="field"><label>Ano</label><input id="vAno" inputmode="numeric"></div>
+        <div class="actions full"><button class="btn" type="submit">Salvar veículo</button><button class="btn gray" type="button" id="cancelVeiculo">Limpar</button></div>
+      </form>
+    </div>
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>Nome</th><th>Placa</th><th>Ano</th><th>Ações</th></tr></thead><tbody id="veiculosBody"></tbody></table></div></div>
+  </section>
+
+  <section id="page-abastecimento" class="page hidden">
+    <div class="card"><h2 class="section-title">Abastecimento</h2>
+      <form id="abastForm" class="grid">
+        <input type="hidden" id="abastId">
+        <div class="field"><label>Data</label><input id="aData" type="date" required></div>
+        <div class="field"><label>Veículo</label><select id="aVeiculo" required></select></div>
+        <div class="field"><label>Motorista</label><input id="aMotorista" required></div>
+        <div class="field"><label>Litros</label><input id="aLitros" inputmode="decimal" required></div>
+        <div class="field"><label>KM</label><input id="aKm" inputmode="decimal" required></div>
+        <div class="field"><label>Valor</label><input id="aValor" inputmode="decimal" required></div>
+        <div class="actions full"><button class="btn" type="submit">Salvar abastecimento</button><button class="btn gray" type="button" id="cancelAbast">Limpar</button></div>
+      </form>
+      <div id="abastMsg"></div>
+    </div>
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Veículo</th><th>Motorista</th><th>Litros</th><th>KM</th><th>Valor</th><th>Consumo</th><th>Ações</th></tr></thead><tbody id="abastBody"></tbody></table></div></div>
+  </section>
+
+  <section id="page-manutencao" class="page hidden">
+    <div class="card"><h2 class="section-title">Manutenção</h2>
+      <form id="manutForm" class="grid">
+        <input type="hidden" id="manutId">
+        <div class="field"><label>Data</label><input id="mData" type="date" required></div>
+        <div class="field"><label>Veículo</label><select id="mVeiculo" required></select></div>
+        <div class="field"><label>Tipo</label><input id="mTipo" required placeholder="Ex.: Óleo, Freio, Revisão"></div>
+        <div class="field"><label>KM atual</label><input id="mKm" inputmode="decimal" required></div>
+        <div class="field"><label>Próxima</label><input id="mProxima" inputmode="decimal" required></div>
+        <div class="actions full"><button class="btn" type="submit">Salvar manutenção</button><button class="btn gray" type="button" id="cancelManut">Limpar</button></div>
+      </form>
+    </div>
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Veículo</th><th>Tipo</th><th>KM atual</th><th>Próxima</th><th>Ações</th></tr></thead><tbody id="manutBody"></tbody></table></div></div>
+  </section>
+</main>
+</section>
+<script>
+const API_URL = 'COLE_AQUI_A_URL_DO_WEB_APP';
+let state={veiculos:[],abastecimentos:[],manutencoes:[],user:null};
+
+function brDate(v){if(!v)return''; const s=String(v); return s.includes('T')?s.slice(0,10):s.slice(0,10)}
+function num(v){return Number(String(v??'').replace(/\./g,'').replace(',','.'))}
+function money(v){return num(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+async function api(action,payload={}){if(!API_URL||API_URL.includes('COLE_AQUI'))throw new Error('Configure a URL do Apps Script em API_URL.');const r=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...payload})});const j=await r.json();if(!j.ok)throw new Error(j.error||'Erro no servidor');return j}
+function msg(id,t,ok=false){document.getElementById(id).innerHTML='<div class="'+(ok?'ok':'error')+'">'+esc(t)+'</div>'}
+function fillSelects(){const opts='<option value="">Selecione</option>'+state.veiculos.map(v=>`<option value="${esc(v.nome)}">${esc(v.nome)}${v.placa?' — '+esc(v.placa):''}</option>`).join('');aVeiculo.innerHTML=opts;mVeiculo.innerHTML=opts}
+function render(){fillSelects();veiculosBody.innerHTML=state.veiculos.map(v=>`<tr><td>${esc(v.nome)}</td><td>${esc(v.placa)}</td><td>${esc(v.ano)}</td><td><button class="btn alt" onclick="editV('${esc(v.id)}')">Editar</button> <button class="btn danger" onclick="delV('${esc(v.id)}')">Excluir</button></td></tr>`).join('')||'<tr><td colspan="4">Nenhum veículo.</td></tr>';
+abastBody.innerHTML=state.abastecimentos.map(a=>`<tr><td>${esc(brDate(a.data))}</td><td>${esc(a.veiculo)}</td><td>${esc(a.motorista)}</td><td>${esc(a.litros)}</td><td>${esc(a.km)}</td><td>${money(a.valor)}</td><td>${a.consumo?esc(a.consumo):''}</td><td><button class="btn alt" onclick="editA('${esc(a.id)}')">Editar</button> <button class="btn danger" onclick="delA('${esc(a.id)}')">Excluir</button></td></tr>`).join('')||'<tr><td colspan="8">Nenhum abastecimento.</td></tr>';
+manutBody.innerHTML=state.manutencoes.map(m=>`<tr><td>${esc(brDate(m.data))}</td><td>${esc(m.veiculo)}</td><td>${esc(m.tipo)}</td><td>${esc(m.kmAtual)}</td><td>${esc(m.proxima)}</td><td><button class="btn alt" onclick="editM('${esc(m.id)}')">Editar</button> <button class="btn danger" onclick="delM('${esc(m.id)}')">Excluir</button></td></tr>`).join('')||'<tr><td colspan="6">Nenhuma manutenção.</td></tr>'}
+async function load(){const j=await api('getData');state.veiculos=j.veiculos||[];state.abastecimentos=j.abastecimentos||[];state.manutencoes=j.manutencoes||[];render()}
+loginForm.onsubmit=async e=>{e.preventDefault();loginMsg.innerHTML='';try{const j=await api('login',{login:loginUser.value.trim(),senha:loginPass.value});if(!j.authenticated)throw new Error('Usuário/e-mail ou senha inválidos.');state.user=j.user;loginView.classList.add('hidden');appView.classList.remove('hidden');loggedUser.textContent='Usuário: '+j.user.nome;await load()}catch(err){msg('loginMsg',err.message)}}
+logoutBtn.onclick=()=>{state.user=null;appView.classList.add('hidden');loginView.classList.remove('hidden');loginForm.reset()}
+refreshBtn.onclick=async()=>{try{await load()}catch(e){alert(e.message)}}
+document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));document.getElementById('page-'+b.dataset.page).classList.remove('hidden');document.querySelectorAll('[data-page]').forEach(x=>x.classList.remove('active'));b.classList.add('active')})
+veiculoForm.onsubmit=async e=>{e.preventDefault();try{await api(veiculoId.value?'updateVeiculo':'addVeiculo',{id:veiculoId.value,nome:vNome.value.trim(),placa:vPlaca.value.trim(),ano:vAno.value.trim()});veiculoForm.reset();veiculoId.value='';await load()}catch(e){alert(e.message)}}
+function editV(id){const v=state.veiculos.find(x=>String(x.id)===String(id));if(!v)return;veiculoId.value=v.id;vNome.value=v.nome;vPlaca.value=v.placa;vAno.value=v.ano}
+async function delV(id){if(!confirm('Excluir este veículo?'))return;try{await api('deleteVeiculo',{id});await load()}catch(e){alert(e.message)}}
+cancelVeiculo.onclick=()=>veiculoForm.reset();
+abastForm.onsubmit=async e=>{e.preventDefault();try{await api(abastId.value?'updateAbastecimento':'addAbastecimento',{id:abastId.value,data:aData.value,veiculo:aVeiculo.value,motorista:aMotorista.value.trim(),litros:aLitros.value,km:aKm.value,valor:aValor.value});abastForm.reset();abastId.value='';await load()}catch(e){alert(e.message)}}
+function editA(id){const a=state.abastecimentos.find(x=>String(x.id)===String(id));if(!a)return;abastId.value=a.id;aData.value=brDate(a.data);aVeiculo.value=a.veiculo;aMotorista.value=a.motorista;aLitros.value=a.litros;aKm.value=a.km;aValor.value=a.valor}
+async function delA(id){if(!confirm('Excluir este abastecimento?'))return;try{await api('deleteAbastecimento',{id});await load()}catch(e){alert(e.message)}}
+cancelAbast.onclick=()=>abastForm.reset();
+manutForm.onsubmit=async e=>{e.preventDefault();try{await api(manutId.value?'updateManutencao':'addManutencao',{id:manutId.value,data:mData.value,veiculo:mVeiculo.value,tipo:mTipo.value.trim(),kmAtual:mKm.value,proxima:mProxima.value});manutForm.reset();manutId.value='';await load()}catch(e){alert(e.message)}}
+function editM(id){const m=state.manutencoes.find(x=>String(x.id)===String(id));if(!m)return;manutId.value=m.id;mData.value=brDate(m.data);mVeiculo.value=m.veiculo;mTipo.value=m.tipo;mKm.value=m.kmAtual;mProxima.value=m.proxima}
+async function delM(id){if(!confirm('Excluir esta manutenção?'))return;try{await api('deleteManutencao',{id});await load()}catch(e){alert(e.message)}}
+cancelManut.onclick=()=>manutForm.reset();
+</script>
+</body>
+</html>
