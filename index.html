@@ -25,7 +25,7 @@ input,textarea{word-spacing:normal;text-rendering:auto}input[type=text],input:no
   </div>
 </section>
 <section id="appView" class="hidden">
-<header><div class="header-row"><div><img src="logo.png" class="app-logo" alt="LOGO" onerror="this.style.display='none'"><div id="loggedUser" class="user-label"></div></div><div class="header-actions"><button id="ajustesBtn" class="refresh-top" type="button" title="AJUSTES" aria-label="AJUSTES"><svg viewBox="0 0 24 24"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.06.06-1.7 1.7-.06-.06a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V20h-2.4v-.09a1.8 1.8 0 0 0-1.1-1.65 1.8 1.8 0 0 0-1.98.36l-.06.06-1.7-1.7.06-.06A1.8 1.8 0 0 0 8.2 15a1.8 1.8 0 0 0-1.65-1.1H6v-2.4h.55A1.8 1.8 0 0 0 8.2 10a1.8 1.8 0 0 0-.36-1.98l-.06-.06 1.7-1.7.06.06a1.8 1.8 0 0 0 1.98.36A1.8 1.8 0 0 0 12.62 5.1V5h2.4v.1a1.8 1.8 0 0 0 1.1 1.64 1.8 1.8 0 0 0 1.98-.36l.06-.06 1.7 1.7-.06.06a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.65 1.1H22v2.4h-.91A1.8 1.8 0 0 0 19.4 15Z"/></svg></button><button id="refreshBtn" class="refresh-top" title="ATUALIZAR">↻</button><button id="logoutBtn" class="btn gray">SAIR</button></div></div></header>
+<header><div class="header-row"><div><img src="logo.png" class="app-logo" alt="LOGO" onerror="this.style.display='none'"><div id="loggedUser" class="user-label"></div></div><div class="header-actions"><button id="ajustesBtn" class="refresh-top" type="button" title="AJUSTES" aria-label="AJUSTES"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="M19.1 13.9l1.5 1.1-1.8 3.1-1.7-.8a7.7 7.7 0 0 1-1.9 1.1L15 20.2h-3.6l-.2-1.8a7.7 7.7 0 0 1-1.9-1.1l-1.7.8-1.8-3.1 1.5-1.1a7.2 7.2 0 0 1 0-2.2L5.8 10.6l1.8-3.1 1.7.8a7.7 7.7 0 0 1 1.9-1.1l.2-1.8H15l.2 1.8a7.7 7.7 0 0 1 1.9 1.1l1.7-.8 1.8 3.1-1.5 1.1a7.2 7.2 0 0 1 0 2.2Z"/></svg></button><button id="refreshBtn" class="refresh-top" title="ATUALIZAR">↻</button><button id="logoutBtn" class="btn gray">SAIR</button></div></div></header>
 <main>
 <section id="page-veiculos" class="page">
 <div class="card"><h2 class="section-title">VEÍCULOS</h2><form id="veiculoForm" class="grid"><input type="hidden" id="veiculoId"><div class="field"><label>NOME</label><input id="vNome" required></div><div class="field"><label>PLACA</label><input id="vPlaca"></div><div class="field"><label>ANO</label><input id="vAno" inputmode="numeric"></div><div class="actions full"><button class="btn" type="submit">SALVAR VEÍCULO</button><button class="btn gray" type="button" id="cancelVeiculo">LIMPAR</button></div></form></div>
@@ -92,7 +92,25 @@ function confirmarEdicao(){const senha=prompt('DIGITE A SENHA DE CONFIRMAÇÃO P
 loginForm.onsubmit=async e=>{e.preventDefault();loginMsg.innerHTML='';try{const j=await api('login',{login:loginUser.value.trim(),senha:loginPass.value});if(!j.authenticated)throw new Error('USUÁRIO/E-MAIL OU SENHA INVÁLIDOS.');enterApp(j.user);await load()}catch(err){msg('loginMsg',err.message)}};
 logoutBtn.onclick=()=>leaveApp();
 function applyTheme(theme){document.body.classList.remove('theme-medium','theme-dark');if(theme==='medium')document.body.classList.add('theme-medium');if(theme==='dark')document.body.classList.add('theme-dark');localStorage.setItem('frota_pro_theme',theme);document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.theme===theme))}
-function applyFont(scale){scale=Math.max(.85,Math.min(1.2,scale));document.documentElement.style.fontSize=(16*scale)+'px';document.getElementById('fontValue').textContent=Math.round(scale*100)+'%';localStorage.setItem('frota_pro_font',String(scale))}
+function applyFont(scale){
+  scale=Math.max(.85,Math.min(1.2,scale));
+  document.documentElement.style.setProperty('--frota-font-scale',String(scale));
+  document.querySelectorAll('body *').forEach(el=>{
+    if(!el.dataset.frotaBaseFont){
+      const current=parseFloat(getComputedStyle(el).fontSize)||16;
+      const base=current/(Number(window._frotaFontScale)||1);
+      el.dataset.frotaBaseFont=String(base);
+    }
+    const base=parseFloat(el.dataset.frotaBaseFont)||16;
+    el.style.fontSize=(base*scale)+'px';
+  });
+  window._frotaFontScale=scale;
+  document.documentElement.style.fontSize=(16*scale)+'px';
+  document.getElementById('fontValue').textContent=Math.round(scale*100)+'%';
+  localStorage.setItem('frota_pro_font',String(scale));
+}
+const fontObserver=new MutationObserver(()=>{const scale=Number(window._frotaFontScale||localStorage.getItem('frota_pro_font')||1);document.querySelectorAll('body *').forEach(el=>{if(!el.dataset.frotaBaseFont){const current=parseFloat(getComputedStyle(el).fontSize)||16;el.dataset.frotaBaseFont=String(current/scale);el.style.fontSize=(parseFloat(el.dataset.frotaBaseFont)*scale)+'px';}})});
+fontObserver.observe(document.body,{childList:true,subtree:true});
 function openSettings(){settingsModal.classList.remove('hidden');const theme=localStorage.getItem('frota_pro_theme')||'light';const scale=Number(localStorage.getItem('frota_pro_font')||'1');applyTheme(theme);applyFont(scale)}
 ajustesBtn.onclick=openSettings;closeSettings.onclick=()=>settingsModal.classList.add('hidden');settingsModal.addEventListener('click',e=>{if(e.target===settingsModal)settingsModal.classList.add('hidden')});document.querySelectorAll('.theme-btn').forEach(b=>b.onclick=()=>applyTheme(b.dataset.theme));fontDown.onclick=()=>applyFont(Number(localStorage.getItem('frota_pro_font')||'1')-.05);fontUp.onclick=()=>applyFont(Number(localStorage.getItem('frota_pro_font')||'1')+.05);
 window.addEventListener('DOMContentLoaded',async()=>{upperFields();applyTheme(localStorage.getItem('frota_pro_theme')||'light');applyFont(Number(localStorage.getItem('frota_pro_font')||'1'));try{const saved=localStorage.getItem('frota_pro_user');if(saved){const user=JSON.parse(saved);if(user&&user.nome){enterApp(user);await load()}}}catch(e){localStorage.removeItem('frota_pro_user')}});
