@@ -130,7 +130,15 @@ function render(){fillSelects();veiculosBody.innerHTML=state.veiculos.map(v=>`<t
 abastBody.innerHTML=state.abastecimentos.map(a=>`<tr><td>${esc(brDate(a.data))}</td><td>${esc(a.veiculo)}</td><td>${esc(a.motorista)}</td><td>${esc(a.litros)}</td><td>${esc(a.km)}</td><td>${money(a.valor)}</td><td>${a.consumo?esc(a.consumo):''}</td><td><button class="btn alt" onclick="editA('${esc(a.id)}')">Editar</button> <button class="btn danger" onclick="delA('${esc(a.id)}')">Excluir</button></td></tr>`).join('')||'<tr><td colspan="8">Nenhum abastecimento.</td></tr>';
 manutBody.innerHTML=state.manutencoes.map(m=>`<tr><td>${esc(brDate(m.data))}</td><td>${esc(m.veiculo)}</td><td>${esc(m.tipo)}</td><td>${esc(m.kmAtual)}</td><td>${esc(m.proxima)}</td><td><button class="btn alt" onclick="editM('${esc(m.id)}')">Editar</button> <button class="btn danger" onclick="delM('${esc(m.id)}')">Excluir</button></td></tr>`).join('')||'<tr><td colspan="6">Nenhuma manutenção.</td></tr>'}
 async function load(){const j=await api('getData');state.veiculos=j.veiculos||[];state.abastecimentos=j.abastecimentos||[];state.manutencoes=j.manutencoes||[];render()}
-loginForm.onsubmit=async e=>{e.preventDefault();loginMsg.innerHTML='';try{const j=await api('login',{login:loginUser.value.trim(),senha:loginPass.value});if(!j.authenticated)throw new Error('Usuário/e-mail ou senha inválidos.');state.user=j.user;loginView.classList.add('hidden');appView.classList.remove('hidden');loggedUser.textContent='Usuário: '+j.user.nome;await load()}catch(err){msg('loginMsg',err.message)}}
+const loginFormEl=document.getElementById('loginForm');
+const loginUserEl=document.getElementById('loginUser');
+const loginPassEl=document.getElementById('loginPass');
+const loginMsgEl=document.getElementById('loginMsg');
+const loginViewEl=document.getElementById('loginView');
+const appViewEl=document.getElementById('appView');
+const loggedUserEl=document.getElementById('loggedUser');
+
+loginFormEl.onsubmit=async e=>{e.preventDefault();loginMsgEl.innerHTML='';try{const j=await api('login',{login:loginUserEl.value.trim(),senha:loginPassEl.value});if(!j.authenticated)throw new Error('Usuário/e-mail ou senha inválidos.');state.user=j.user;loginViewEl.classList.add('hidden');appViewEl.classList.remove('hidden');loggedUserEl.textContent='Usuário: '+j.user.nome;await load()}catch(err){msg('loginMsg',err.message)}}
 logoutBtn.onclick=()=>{state.user=null;appView.classList.add('hidden');loginView.classList.remove('hidden');loginForm.reset()}
 refreshBtn.onclick=async()=>{try{await load()}catch(e){alert(e.message)}}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));document.getElementById('page-'+b.dataset.page).classList.remove('hidden');document.querySelectorAll('[data-page]').forEach(x=>x.classList.remove('active'));b.classList.add('active')})
