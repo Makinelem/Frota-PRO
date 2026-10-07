@@ -9,6 +9,7 @@
 :root{--bg:#f4f6f8;--card:#fff;--text:#17202a;--muted:#6b7280;--primary:#075985;--primary2:#0ea5e9;--danger:#b91c1c;--border:#dbe2e8}
 body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
 header{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;padding:18px 16px;position:sticky;top:0;z-index:5}
+.header-actions{display:flex;align-items:center;gap:8px}.refresh-top{width:40px;height:40px;padding:0;border-radius:10px;background:#ffffff22;color:#fff;border:1px solid #ffffff55;font-size:21px;line-height:1}
 .header-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
 h1{margin:0;font-size:23px}.user-label{font-size:12px;opacity:.9}
 main{max-width:900px;margin:auto;padding:16px 14px 90px}
@@ -23,13 +24,16 @@ button{border:0;border-radius:10px;padding:11px 14px;font-weight:700;cursor:poin
 .table-wrap{overflow:auto;border:1px solid var(--border);border-radius:10px}
 table{border-collapse:collapse;width:100%;min-width:620px;background:#fff}th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;font-size:13px}th{background:#f1f5f9}
 .hidden{display:none!important}.error{color:var(--danger);font-size:13px;margin-top:8px}.ok{color:#166534;font-size:13px;margin-top:8px}
-.nav{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
-.nav button{background:#fff;border:1px solid var(--border);color:#334155}
-.nav button.active{background:#075985;color:#fff;border-color:#075985}
+.nav{display:none}
+.bottom-nav{position:fixed;left:0;right:0;bottom:0;height:70px;background:#fff;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(3,1fr);z-index:20;box-shadow:0 -4px 14px #00000012;padding-bottom:env(safe-area-inset-bottom)}
+.bottom-nav button{background:#fff;color:#64748b;border:0;border-radius:0;padding:7px 4px 5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:700}
+.bottom-nav button.active{color:#075985;background:#eef8fd}
+.bottom-nav svg{width:25px;height:25px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.bottom-nav .gear svg{stroke-width:1.9}
 .login{min-height:100vh;display:grid;place-items:center;padding:18px;background:linear-gradient(135deg,#061b2d,#0ea5e9)}
 .login-box{width:min(430px,100%);background:#fff;border-radius:18px;padding:24px;box-shadow:0 20px 60px #0006}
 .login-box h1{text-align:center;color:#075985;margin-bottom:5px}.login-box p{text-align:center;color:var(--muted);margin-top:0}
-@media(max-width:600px){.grid{grid-template-columns:1fr}.field.full{grid-column:auto}.nav{grid-template-columns:repeat(2,1fr)}main{padding:12px 10px 80px}.card{padding:13px}}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.field.full{grid-column:auto}main{padding:12px 10px 92px}.card{padding:13px}.header-actions{gap:6px}.refresh-top{width:38px;height:38px}}
 </style>
 </head>
 <body>
@@ -47,15 +51,8 @@ table{border-collapse:collapse;width:100%;min-width:620px;background:#fff}th,td{
 </section>
 
 <section id="appView" class="hidden">
-<header><div class="header-row"><div><h1>Frota PRO</h1><div id="loggedUser" class="user-label"></div></div><button id="logoutBtn" class="btn gray">Sair</button></div></header>
+<header><div class="header-row"><div><h1>Frota PRO</h1><div id="loggedUser" class="user-label"></div></div><div class="header-actions"><button id="refreshBtn" class="refresh-top" title="Atualizar" aria-label="Atualizar">↻</button><button id="logoutBtn" class="btn gray">Sair</button></div></div></header>
 <main>
-  <div class="nav">
-    <button data-page="veiculos" class="active">Veículos</button>
-    <button data-page="abastecimento">Abastecimento</button>
-    <button data-page="manutencao">Manutenção</button>
-    <button id="refreshBtn">Atualizar</button>
-  </div>
-
   <section id="page-veiculos" class="page">
     <div class="card"><h2 class="section-title">Veículos</h2>
       <form id="veiculoForm" class="grid">
@@ -101,6 +98,20 @@ table{border-collapse:collapse;width:100%;min-width:620px;background:#fff}th,td{
     <div class="card"><div class="table-wrap"><table><thead><tr><th>Data</th><th>Veículo</th><th>Tipo</th><th>KM atual</th><th>Próxima</th><th>Ações</th></tr></thead><tbody id="manutBody"></tbody></table></div></div>
   </section>
 </main>
+<div class="bottom-nav" aria-label="Navegação principal">
+  <button data-page="veiculos" class="active" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h14"/><path d="M6 17l1-6h10l1 6"/><path d="M8 11l1.5-4h5L16 11"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>
+    <span>Veículos</span>
+  </button>
+  <button data-page="abastecimento" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 20V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v15"/><path d="M6 7h10"/><path d="M16 8h2l2 2v6a2 2 0 0 1-2 2h-1"/><path d="M18 8v5"/><path d="M9 11h4"/><path d="M11 9v4"/><path d="M5 20h12"/></svg>
+    <span>Abastecimento</span>
+  </button>
+  <button data-page="manutencao" class="gear" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.06.06-1.7 1.7-.06-.06a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V20h-2.4v-.09a1.8 1.8 0 0 0-1.1-1.65 1.8 1.8 0 0 0-1.98.36l-.06.06-1.7-1.7.06-.06A1.8 1.8 0 0 0 8.2 15a1.8 1.8 0 0 0-1.65-1.1H6v-2.4h.55A1.8 1.8 0 0 0 8.2 10a1.8 1.8 0 0 0-.36-1.98l-.06-.06 1.7-1.7.06.06a1.8 1.8 0 0 0 1.98.36A1.8 1.8 0 0 0 12.62 5.1V5h2.4v.1a1.8 1.8 0 0 0 1.1 1.64 1.8 1.8 0 0 0 1.98-.36l.06-.06 1.7 1.7-.06.06a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.65 1.1H22v2.4h-.91A1.8 1.8 0 0 0 19.4 15Z"/></svg>
+    <span>Manutenção</span>
+  </button>
+</div>
 </section>
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbxz_mUNzlwFhiEYqInCdgShdUWOhcr74xqttGsZ4vQWxcuRUIeRyFH9ft2s4mgTr-V7eQ/exec';
