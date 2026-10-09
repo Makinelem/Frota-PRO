@@ -1,0 +1,142 @@
+const API_URL='https://script.google.com/macros/s/AKfycbxz_mUNzlwFhiEYqInCdgShdUWOhcr74xqttGsZ4vQWxcuRUIeRyFH9ft2s4mgTr-V7eQ/exec';
+let state={veiculos:[],abastecimentos:[],mecanicas:[],revisoes:[],pecas:[],manutencoes:[],user:null};
+let seletivoTipo='';
+function brDate(v){if(!v)return'';let s=String(v);return s.includes('T')?s.slice(0,10):s.slice(0,10)}
+function num(v){if(typeof v==='number')return v;let s=String(v??'').trim();if(!s)return NaN;if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');else if(s.includes(','))s=s.replace(',','.');return Number(s)}
+function money(v){let n=num(v);return isNaN(n)?'':n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function upperFields(){}
+function api(action,payload={}){return new Promise((resolve,reject)=>{const callbackName='__frotaCallback_'+Date.now()+'_'+Math.random().toString(36).slice(2);const params=new URLSearchParams({action,callback:callbackName});Object.entries(payload).forEach(([k,v])=>params.set(k,String(v??'')));const script=document.createElement('script');script.referrerPolicy='no-referrer';const timer=setTimeout(()=>{cleanup();reject(new Error('TEMPO ESGOTADO AO COMUNICAR COM O GOOGLE APPS SCRIPT.'))},20000);function cleanup(){clearTimeout(timer);delete window[callbackName];script.remove()}window[callbackName]=data=>{cleanup();if(!data||!data.ok){reject(new Error((data&&data.error)||'ERRO NO SERVIDOR.'));return}resolve(data)};script.onerror=()=>{cleanup();reject(new Error('A RESPOSTA DO GOOGLE APPS SCRIPT FOI BLOQUEADA OU NÃO PÔDE SER CARREGADA. VERIFIQUE EXTENSÕES, REDIRECIONAMENTO E A IMPLANTAÇÃO.'))};script.src=API_URL+'?'+params.toString();document.body.appendChild(script)})}
+function msg(id,t,ok=false){document.getElementById(id).innerHTML='<div class="'+(ok?'ok':'error')+'">'+esc(t)+'</div>'}
+function fillSelects(){const opts='<option value="">SELECIONE</option>'+state.veiculos.map(v=>`<option value="${esc(v.nome)}">${esc(v.nome)}${v.placa?' — '+esc(v.placa):''}</option>`).join('');['aVeiculo','mcVeiculo','rvVeiculo','pcVeiculo'].forEach(id=>document.getElementById(id).innerHTML=opts)}
+function dataOrdem(v){const d=new Date(v||0);return isNaN(d.getTime())?0:d.getTime()}
+function calcularConsumo(atual){
+  const kmAtual=num(atual.km), litros=num(atual.litros);
+  if(!(litros>0)||!(kmAtual>=0)) return '';
+  const anteriores=state.abastecimentos
+    .filter(x=>String(x.veiculo)===String(atual.veiculo)&&String(x.id)!==String(atual.id))
+    .filter(x=>dataOrdem(x.data)<dataOrdem(atual.data)&&num(x.km)>=0&&num(x.litros)>0)
+    .sort((a,b)=>dataOrdem(b.data)-dataOrdem(a.data));
+  if(!anteriores.length) return 'INÍCIO';
+  const kmAnterior=num(anteriores[0].km);
+  if(kmAtual<=kmAnterior) return 'VERIFICAR KM';
+  return ((kmAtual-kmAnterior)/litros).toFixed(2);
+}
+function consumoSeguro(a){
+  const valor=String(a.consumo??'').trim();
+  if(/^INÍCIO$/i.test(valor)) return 'INÍCIO';
+  const n=num(valor);
+  if(valor && Number.isFinite(n) && n>0 && n<100) return n.toFixed(2);
+  return calcularConsumo(a);
+}
+function alarmeRevisao(r){const k=num(r.km),p=num(r.proxima);if(isNaN(k)||isNaN(p))return {classe:'',texto:'-'};const falta=p-k;if(falta<=6000)return {classe:'green',texto:falta<0?'VENCIDA '+Math.abs(falta)+' KM':falta+' KM'};if(falta<=7000)return {classe:'yellow',texto:falta+' KM'};return {classe:'red',texto:falta+' KM'}}
+function render(){fillSelects();veiculosBody.innerHTML=state.veiculos.map(v=>`<tr><td>${esc(v.nome)}</td><td>${esc(v.placa)}</td><td>${esc(v.ano)}</td><td class="actions-cell"><button class="icon-btn edit" title="EDITAR" onclick="editV('${esc(v.id)}')">✏️</button> <button class="icon-btn delete" title="EXCLUIR" onclick="delV('${esc(v.id)}')">🗑️</button></td></tr>`).join('')||'<tr><td colspan="4">NENHUM VEÍCULO.</td></tr>';
+abastBody.innerHTML=state.abastecimentos.map(a=>`<tr><td>${esc(brDate(a.data))}</td><td>${esc(a.veiculo)}</td><td>${esc(a.motorista)}</td><td>${esc(a.litros)}</td><td>${esc(a.km)}</td><td>${money(a.valor)}</td><td>${esc(consumoSeguro(a))}</td><td class="actions-cell"><button class="icon-btn edit" title="EDITAR" onclick="editA('${esc(a.id)}')">✏️</button> <button class="icon-btn delete" title="EXCLUIR" onclick="delA('${esc(a.id)}')">🗑️</button></td></tr>`).join('')||'<tr><td colspan="8">NENHUM ABASTECIMENTO.</td></tr>';
+mecanicaBody.innerHTML=state.mecanicas.map(m=>`<tr><td>${esc(brDate(m.data))}</td><td>${esc(m.veiculo)}</td><td>${esc(m.descricao)}</td><td>${esc(m.observacao)}</td><td class="actions-cell"><button class="icon-btn edit" title="EDITAR" onclick="editMC('${esc(m.id)}')">✏️</button> <button class="icon-btn delete" title="EXCLUIR" onclick="delMC('${esc(m.id)}')">🗑️</button></td></tr>`).join('')||'<tr><td colspan="5">NENHUM REGISTRO.</td></tr>';
+revisaoBody.innerHTML=state.revisoes.map(r=>{const al=alarmeRevisao(r);const st=r.conclusao==='INÍCIO'?'<span class="status-inicio">INÍCIO</span>':r.conclusao==='FEITO'?'<span class="status-feito">FEITO</span>':r.conclusao==='ATRASO'?'<span class="status-feito">FEITO</span>':'<span class="status-pendente">PENDENTE</span>';return `<tr><td>${esc(brDate(r.data))}</td><td>${esc(r.veiculo)}</td><td>${esc(r.descricao)}</td><td>${esc(r.km)} <button class="icon-btn" title="ATUALIZAR KM" onclick="atualizarKm('${esc(r.id)}')">↻</button></td><td>${esc(r.proxima)}</td><td>${st}</td><td><span class="alarm ${al.classe}">${esc(al.texto)}</span></td><td class="actions-cell"><button class="icon-btn edit" title="EDITAR" onclick="editRV('${esc(r.id)}')">✏️</button> <button class="icon-btn delete" title="EXCLUIR" onclick="delRV('${esc(r.id)}')">🗑️</button></td></tr>`}).join('')||'<tr><td colspan="8">NENHUMA REVISÃO.</td></tr>';
+pecaBody.innerHTML=state.pecas.map(p=>`<tr><td>${esc(brDate(p.data))}</td><td>${esc(p.veiculo)}</td><td>${esc(p.nome)}</td><td>${esc(p.descricao)}</td><td>${esc(p.observacao)}</td><td class="actions-cell"><button class="icon-btn edit" title="EDITAR" onclick="editPC('${esc(p.id)}')">✏️</button> <button class="icon-btn delete" title="EXCLUIR" onclick="delPC('${esc(p.id)}')">🗑️</button></td></tr>`).join('')||'<tr><td colspan="6">NENHUMA PEÇA.</td></tr>'}
+async function load(){const j=await api('getData');state.veiculos=j.veiculos||[];state.abastecimentos=j.abastecimentos||[];state.mecanicas=j.mecanicas||[];state.revisoes=j.revisoes||[];state.pecas=j.pecas||[];state.manutencoes=j.manutencoes||[];render()}
+function enterApp(user){state.user=user;localStorage.setItem('frota_pro_user',JSON.stringify(user));loginView.classList.add('hidden');appView.classList.remove('hidden');loggedUser.textContent='USUÁRIO: '+String(user.nome||'').toUpperCase()}
+function leaveApp(){state.user=null;localStorage.removeItem('frota_pro_user');appView.classList.add('hidden');loginView.classList.remove('hidden');loginForm.reset()}
+function confirmarEdicao(){const senha=prompt('DIGITE A SENHA DE CONFIRMAÇÃO PARA EDITAR OU EXCLUIR:');if(senha===null)return false;if(senha!=='frot@AG4'){alert('SENHA DE CONFIRMAÇÃO INVÁLIDA.');return false}return true}
+const _loginForm=document.getElementById('loginForm');const _loginUser=document.getElementById('loginUser');const _loginPass=document.getElementById('loginPass');[_loginUser,_loginPass].forEach(el=>{el.style.setProperty('text-transform','none','important');el.style.setProperty('-webkit-text-transform','none','important');el.addEventListener('focus',()=>el.style.setProperty('text-transform','none','important'));el.addEventListener('input',()=>el.style.setProperty('text-transform','none','important'));});_loginForm.onsubmit=async e=>{e.preventDefault();document.getElementById('loginMsg').innerHTML='';try{const j=await api('login',{login:_loginUser.value.trim(),senha:_loginPass.value});if(!j.authenticated)throw new Error('USUÁRIO/E-MAIL OU SENHA INVÁLIDOS.');enterApp(j.user);await load()}catch(err){msg('loginMsg',err.message)}};
+logoutBtn.onclick=()=>leaveApp();
+function applyTheme(theme){document.body.classList.remove('theme-medium','theme-dark');if(theme==='medium')document.body.classList.add('theme-medium');if(theme==='dark')document.body.classList.add('theme-dark');localStorage.setItem('frota_pro_theme',theme);document.querySelectorAll('.theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.theme===theme))}
+function applyFont(scale){
+  scale=Math.max(.85,Math.min(1.2,scale));
+  document.documentElement.style.setProperty('--frota-font-scale',String(scale));
+  document.querySelectorAll('body *').forEach(el=>{
+    if(!el.dataset.frotaBaseFont){
+      const current=parseFloat(getComputedStyle(el).fontSize)||16;
+      const base=current/(Number(window._frotaFontScale)||1);
+      el.dataset.frotaBaseFont=String(base);
+    }
+    const base=parseFloat(el.dataset.frotaBaseFont)||16;
+    el.style.fontSize=(base*scale)+'px';
+  });
+  window._frotaFontScale=scale;
+  document.documentElement.style.fontSize=(16*scale)+'px';
+  document.getElementById('fontValue').textContent=Math.round(scale*100)+'%';
+  localStorage.setItem('frota_pro_font',String(scale));
+}
+const fontObserver=new MutationObserver(()=>{const scale=Number(window._frotaFontScale||localStorage.getItem('frota_pro_font')||1);document.querySelectorAll('body *').forEach(el=>{if(!el.dataset.frotaBaseFont){const current=parseFloat(getComputedStyle(el).fontSize)||16;el.dataset.frotaBaseFont=String(current/scale);el.style.fontSize=(parseFloat(el.dataset.frotaBaseFont)*scale)+'px';}})});
+fontObserver.observe(document.body,{childList:true,subtree:true});
+function openSettings(){settingsModal.classList.remove('hidden');const theme=localStorage.getItem('frota_pro_theme')||'light';const scale=Number(localStorage.getItem('frota_pro_font')||'1');applyTheme(theme);applyFont(scale)}
+ajustesBtn.onclick=openSettings;closeSettings.onclick=()=>settingsModal.classList.add('hidden');settingsModal.addEventListener('click',e=>{if(e.target===settingsModal)settingsModal.classList.add('hidden')});document.querySelectorAll('.theme-btn').forEach(b=>b.onclick=()=>applyTheme(b.dataset.theme));fontDown.onclick=()=>applyFont(Number(localStorage.getItem('frota_pro_font')||'1')-.05);fontUp.onclick=()=>applyFont(Number(localStorage.getItem('frota_pro_font')||'1')+.05);
+window.addEventListener('DOMContentLoaded',async()=>{upperFields();applyTheme(localStorage.getItem('frota_pro_theme')||'light');applyFont(Number(localStorage.getItem('frota_pro_font')||'1'));try{const saved=localStorage.getItem('frota_pro_user');if(saved){const user=JSON.parse(saved);if(user&&user.nome){enterApp(user);await load()}}}catch(e){localStorage.removeItem('frota_pro_user')}});
+refreshBtn.onclick=async()=>{try{await load()}catch(e){alert(e.message)}};
+document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));document.getElementById('page-'+b.dataset.page).classList.remove('hidden');document.querySelectorAll('[data-page]').forEach(x=>x.classList.remove('active'));b.classList.add('active')});
+veiculoForm.onsubmit=async e=>{e.preventDefault();try{const editing=!!veiculoId.value;if(editing&&!confirmarEdicao())return;await api(editing?'updateVeiculo':'addVeiculo',{id:veiculoId.value,nome:vNome.value.trim().toUpperCase(),placa:vPlaca.value.trim().toUpperCase(),ano:vAno.value.trim(),confirmPassword:editing?'frot@AG4':''});veiculoForm.reset();veiculoId.value='';await load()}catch(e){alert(e.message)}};
+function editV(id){const v=state.veiculos.find(x=>String(x.id)===String(id));if(!v)return;veiculoId.value=v.id;vNome.value=v.nome;vPlaca.value=v.placa;vAno.value=v.ano}
+async function delV(id){if(!confirm('EXCLUIR ESTE VEÍCULO?'))return;if(!confirmarEdicao())return;try{await api('deleteVeiculo',{id,confirmPassword:'frot@AG4'});await load()}catch(e){alert(e.message)}} cancelVeiculo.onclick=()=>{veiculoForm.reset();veiculoId.value=''};
+abastForm.onsubmit=async e=>{e.preventDefault();try{const editing=!!abastId.value;if(editing&&!confirmarEdicao())return;await api(editing?'updateAbastecimento':'addAbastecimento',{id:abastId.value,data:aData.value,veiculo:aVeiculo.value,motorista:aMotorista.value.trim().toUpperCase(),litros:aLitros.value,km:aKm.value,valor:aValor.value,confirmPassword:editing?'frot@AG4':''});abastForm.reset();abastId.value='';await load()}catch(e){alert(e.message)}};
+function editA(id){const a=state.abastecimentos.find(x=>String(x.id)===String(id));if(!a)return;abastId.value=a.id;aData.value=brDate(a.data);aVeiculo.value=a.veiculo;aMotorista.value=a.motorista;aLitros.value=a.litros;aKm.value=a.km;aValor.value=a.valor}
+async function delA(id){if(!confirm('EXCLUIR ESTE ABASTECIMENTO?'))return;if(!confirmarEdicao())return;try{await api('deleteAbastecimento',{id,confirmPassword:'frot@AG4'});await load()}catch(e){alert(e.message)}} cancelAbast.onclick=()=>{abastForm.reset();abastId.value=''};
+function mostrarOrdem(v){document.querySelectorAll('.manut-panel').forEach(x=>x.classList.add('hidden'));document.getElementById('manut-'+v).classList.remove('hidden')};manutOrdem.onchange=()=>mostrarOrdem(manutOrdem.value);
+mecanicaForm.onsubmit=async e=>{e.preventDefault();try{const editing=!!mecanicaId.value;if(editing&&!confirmarEdicao())return;await api(editing?'updateMecanica':'addMecanica',{id:mecanicaId.value,data:mcData.value,veiculo:mcVeiculo.value,descricao:mcDescricao.value.trim().toUpperCase(),observacao:mcObservacao.value.trim().toUpperCase(),confirmPassword:editing?'frot@AG4':''});mecanicaForm.reset();mecanicaId.value='';await load()}catch(e){alert(e.message)}};
+function editMC(id){const m=state.mecanicas.find(x=>String(x.id)===String(id));if(!m)return;mecanicaId.value=m.id;mcData.value=brDate(m.data);mcVeiculo.value=m.veiculo;mcDescricao.value=m.descricao;mcObservacao.value=m.observacao}
+async function delMC(id){if(!confirm('EXCLUIR ESTE REGISTRO DE MECÂNICA?'))return;if(!confirmarEdicao())return;try{await api('deleteMecanica',{id,confirmPassword:'frot@AG4'});await load()}catch(e){alert(e.message)}} cancelMecanica.onclick=()=>{mecanicaForm.reset();mecanicaId.value=''};
+rvKm.addEventListener('input',()=>{const k=num(rvKm.value);if(!isNaN(k)&&k>=0)rvProxima.value=String(k+6000)});
+revisaoForm.onsubmit=async e=>{e.preventDefault();try{const editing=!!revisaoId.value;if(editing&&!confirmarEdicao())return;await api(editing?'updateRevisao':'addRevisao',{id:revisaoId.value,data:rvData.value,veiculo:rvVeiculo.value,descricao:rvDescricao.value.trim().toUpperCase(),km:rvKm.value,proxima:rvProxima.value,confirmPassword:editing?'frot@AG4':''});revisaoForm.reset();revisaoId.value='';await load()}catch(e){alert(e.message)}};
+function editRV(id){const r=state.revisoes.find(x=>String(x.id)===String(id));if(!r)return;revisaoId.value=r.id;rvData.value=brDate(r.data);rvVeiculo.value=r.veiculo;rvDescricao.value=r.descricao;rvKm.value=r.km;rvProxima.value=r.proxima}
+async function atualizarKm(id){const r=state.revisoes.find(x=>String(x.id)===String(id));if(!r)return;const km=prompt('INFORME O KM ATUAL:',r.km||'');if(km===null)return;if(!confirmarEdicao())return;try{await api('updateRevisaoKm',{id,km,confirmPassword:'frot@AG4'});await load()}catch(e){alert(e.message)}}
+async function delRV(id){if(!confirm('EXCLUIR ESTA REVISÃO?'))return;if(!confirmarEdicao())return;try{await api('deleteRevisao',{id,confirmPassword:'frot@AG4'});await load()}catch(e){alert(e.message)}} cancelRevisao.onclick=()=>{revisaoForm.reset();revisaoId.value=''};
+pecaForm.onsubmit=async e=>{e.preventDefault();try{const editing=!!pecaId.value;if(editing&&!confirmarEdicao())return;await api(editing?'updatePeca':'addPeca',{id:pecaId.value,data:pcData.value,veiculo:pcVeiculo.value,nome:pcNome.value.trim().toUpperCase(),descricao:pcDescricao.value.trim().toUpperCase(),observacao:pcObservacao.value.trim().toUpperCase(),confirmPassword:editing?'frot@AG4':''});pecaForm.reset();pecaId.value='';await load()}catch(e){alert(e.message)}};
+function editPC(id){const p=state.pecas.find(x=>String(x.id)===String(id));if(!p)return;pecaId.value=p.id;pcData.value=brDate(p.data);pcVeiculo.value=p.veiculo;pcNome.value=p.nome;pcDescricao.value=p.descricao;pcObservacao.value=p.observacao}
+async function delPC(id){if(!confirm('EXCLUIR ESTA PEÇA?'))return;if(!confirmarEdicao())return;try{await api('deletePeca',{id,confirmPassword:'frot@AG4'});await load()}catch(e){alert(e.message)}} cancelPeca.onclick=()=>{pecaForm.reset();pecaId.value=''};
+function abrirSeletivo(tipo){seletivoTipo=tipo;vehicleChecks.innerHTML=state.veiculos.map(v=>`<label class="vehicle-check"><input type="checkbox" value="${esc(v.nome)}"> <span>${esc(v.nome)}${v.placa?' — '+esc(v.placa):''}</span></label>`).join('')||'<div>NENHUM VEÍCULO CADASTRADO.</div>';vehicleModal.classList.remove('hidden')}
+cancelVehicles.onclick=()=>vehicleModal.classList.add('hidden');
+confirmVehicles.onclick=()=>{const selected=[...vehicleChecks.querySelectorAll('input:checked')].map(x=>x.value);if(!selected.length){alert('SELECIONE PELO MENOS UM VEÍCULO.');return}vehicleModal.classList.add('hidden');gerarRelatorio(seletivoTipo,'seletivo',selected)};
+function dateSort(a,b){return String(brDate(a.data)).localeCompare(String(brDate(b.data)))}
+function groupByVehicle(rows){const groups={};rows.forEach(r=>{const v=String(r.veiculo||'SEM VEÍCULO');if(!groups[v])groups[v]=[];groups[v].push(r)});Object.keys(groups).forEach(k=>groups[k].sort(dateSort));return groups}
+function rowsTable(headers,rows,classes=[],reportClass=''){const colgroup=classes.length?'<colgroup>'+classes.map(c=>'<col class="'+c+'">').join('')+'</colgroup>':'';return '<div class="report-scroll"><table class="report-table '+reportClass+'">'+colgroup+'<thead><tr>'+headers.map((h,i)=>'<th class="'+(classes[i]||'')+'">'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map((c,i)=>'<td class="'+(classes[i]||'')+'">'+esc(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'}
+function dadosRelatorio(tipo,veiculos){
+  const source=tipo==='abastecimento'?state.abastecimentos:tipo==='mecanica'?state.mecanicas:tipo==='revisao'?state.revisoes:state.pecas;
+  const filtered=source.filter(r=>!veiculos||veiculos.includes(String(r.veiculo)));
+  const headers=tipo==='abastecimento'?['DATA','MOTORISTA','LITROS','KM','VALOR','CONSUMO (KM/L)']:tipo==='mecanica'?['DATA','DESCRIÇÃO','OBSERVAÇÃO']:tipo==='revisao'?['DATA','DESCRIÇÃO','KM','PRÓXIMA']:['DATA','NOME','DESCRIÇÃO','OBSERVAÇÃO'];
+  return {headers,source:filtered};
+}
+function gerarRelatorio(tipo,modo,veiculos){
+  const now=new Date(),stamp=now.toLocaleString('pt-BR').replace(/[:/]/g,'-');
+  const title=(tipo==='manutencao'?'MANUTENÇÃO COMPLETA':tipo.toUpperCase())+' '+(modo==='geral'?'GERAL':'SELETIVO');
+  const reportModeClass=(tipo==='manutencao'&&modo==='geral')?' manutencao-geral-pdf':'';
+  let html='<div class="card no-print"><div class="actions"><button class="btn" onclick="baixarPDF()">BAIXAR EM PDF</button></div></div><div class="card report-result'+reportModeClass+'" id="printReport"><h2 class="report-title">'+title+'</h2><div class="small">GERADO EM '+esc(now.toLocaleString('pt-BR'))+'</div>';
+  if(tipo==='manutencao'){
+    const categorias=[
+      {nome:'MECÂNICA',rows:state.mecanicas,headers:['DATA','DESCRIÇÃO','OBSERVAÇÃO'],classes:['col-date','col-desc','col-note'],reportClass:'report-mecanica-completa'},
+      {nome:'REVISÃO',rows:state.revisoes,headers:['DATA','DESCRIÇÃO','KM','PRÓXIMA'],classes:['col-date','col-desc','col-km','col-next'],reportClass:'report-revisao-completa'},
+      {nome:'PEÇAS',rows:state.pecas,headers:['DATA','NOME','DESCRIÇÃO','OBSERVAÇÃO'],classes:['col-date','col-name','col-desc','col-note'],reportClass:'report-pecas-completa'}
+    ];
+    categorias.forEach(cat=>{
+      const filtradas=cat.rows.filter(r=>!veiculos||veiculos.includes(String(r.veiculo))),grupos=groupByVehicle(filtradas);
+      const ordem=state.veiculos.map(v=>String(v.nome||v.veiculo||v)).filter(v=>Object.prototype.hasOwnProperty.call(grupos,v));
+      const restantes=Object.keys(grupos).filter(v=>!ordem.includes(v)).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+      const nomes=[...ordem,...restantes]; html+='<section class="maintenance-category"><div class="maintenance-category-title">'+esc(cat.nome)+'</div>';
+      if(!nomes.length) html+='<div class="small">NENHUM REGISTRO.</div>';
+      nomes.forEach(nome=>{
+        const rows=cat.nome==='MECÂNICA'?grupos[nome].map(r=>[brDate(r.data),r.descricao||'',r.observacao||'']):cat.nome==='REVISÃO'?grupos[nome].map(r=>[brDate(r.data),r.descricao||'',r.km||'',r.proxima||'']):grupos[nome].map(r=>[brDate(r.data),r.nome||'',r.descricao||'',r.observacao||'']);
+        html+='<div class="vehicle-report"><div class="maintenance-vehicle-title">'+esc(nome)+'</div>'+rowsTable(cat.headers,rows,cat.classes,cat.reportClass)+'</div>';
+      }); html+='</section>';
+    });
+  } else {
+    const d=dadosRelatorio(tipo,veiculos),grupos=groupByVehicle(d.source);
+    const ordem=state.veiculos.map(v=>String(v.nome||v.veiculo||v)).filter(v=>Object.prototype.hasOwnProperty.call(grupos,v));
+    const restantes=Object.keys(grupos).filter(v=>!ordem.includes(v)).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const nomes=[...ordem,...restantes];
+    const classes=tipo==='abastecimento'?['col-date','col-motorista','col-litros','col-km','col-valor','col-consumo']:tipo==='mecanica'?['col-date','col-desc','col-note']:tipo==='revisao'?['col-date','col-desc','col-km','col-next']:['col-date','col-name','col-desc','col-note'];
+    html+='<section class="maintenance-category">';
+    if(!nomes.length) html+='<div class="small">NENHUM REGISTRO.</div>';
+    nomes.forEach(nome=>{
+      const rows=grupos[nome].map(r=>tipo==='abastecimento'?[brDate(r.data),r.motorista||'',r.litros||'',r.km||'',money(r.valor),r.consumo||calcularConsumo(r)]:tipo==='mecanica'?[brDate(r.data),r.descricao||'',r.observacao||'']:tipo==='revisao'?[brDate(r.data),r.descricao||'',r.km||'',r.proxima||'']:[brDate(r.data),r.nome||'',r.descricao||'',r.observacao||'']);
+      html+='<div class="vehicle-report"><div class="maintenance-vehicle-title">'+esc(nome)+'</div>'+rowsTable(d.headers,rows,classes,'report-'+tipo+'-grouped')+'</div>';
+    }); html+='</section>';
+  }
+  html+='</div>';reportResult.innerHTML=html;reportResult.scrollIntoView({behavior:'smooth',block:'start'});window._pdfTitle='Frota PRO - '+title+' - '+stamp;
+}
+function baixarPDF(){const el=document.getElementById('printReport');if(!el)return;const title=window._pdfTitle||'Frota PRO - Relatório';const w=window.open('','_blank');if(!w){alert('PERMITA POP-UPS PARA BAIXAR O PDF.');return}const logoUrl=new URL('logo.png',location.href).href;const logo='<img src="'+logoUrl+'" alt="Logo" class="pdf-logo" onerror="this.style.display=\'none\'">';const clone=el.cloneNode(true);
+if(el.classList.contains('manutencao-geral-pdf')){
+  clone.querySelectorAll('[style]').forEach(node=>{
+    if(node.style && node.style.fontSize) node.style.removeProperty('font-size');
+  });
+}
+const report='<div class="'+el.className+'">'+clone.innerHTML+'</div>';w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>@page{size:A4 portrait;margin:14mm 10mm 14mm 10mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#17202a;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pdf-head{height:1.2cm;display:flex;align-items:flex-start;justify-content:flex-end;margin:0 0 1mm}.pdf-logo{height:1.2cm;width:auto;max-width:50mm;object-fit:contain;object-position:right top}h2{font-size:12px;margin:0 0 1px}.small{font-size:6.5px;color:#5b6470;margin-bottom:2px}.report-scroll{overflow:visible}.report-table{border-collapse:collapse;width:100%;min-width:0;table-layout:fixed;font-size:8.5px;page-break-inside:auto}.report-table thead{display:table-header-group}.report-table tr{page-break-inside:auto;break-inside:auto;line-height:1}.report-table th,.report-table td{padding:1px 2px;text-align:left;vertical-align:top;overflow-wrap:break-word;word-break:normal;border-bottom:1px solid #dfe3e7}.report-table th{background:#dfeaf2!important;color:#17324d!important;white-space:normal;font-size:8.5px;overflow-wrap:anywhere}.report-table td{white-space:normal;overflow-wrap:anywhere;word-break:normal}.report-table td.col-desc,.report-table td.col-note{white-space:normal;overflow-wrap:anywhere}.report-mecanica th,.report-mecanica td,.report-revisao th,.report-revisao td,.report-pecas th,.report-pecas td{padding:.32px 2px}.report-mecanica,.report-revisao,.report-pecas{font-size:4.9px}.report-mecanica th,.report-revisao th,.report-pecas th{font-size:4.9px}.maintenance-category{margin:1mm 0 .55mm;break-inside:auto;page-break-inside:auto}.maintenance-category-title{background:#dfeaf2!important;color:#17324d!important;font-weight:900;font-size:8.4px;margin:0 0 .15mm;padding:.25mm .7mm;border-bottom:1px solid #c5d5e2;break-after:avoid}.maintenance-vehicle-title{background:transparent!important;color:#17202a!important;font-weight:400!important;font-size:8.4px;padding:0 1mm;margin:0 0 .05mm;break-after:avoid;padding-left:4mm}.vehicle-report{margin:.15mm 0 .3mm;break-inside:auto;page-break-inside:auto}.pdf-pages{display:none;position:fixed;left:0;right:0;bottom:-10mm;text-align:center;font-size:6px;color:#66717d}.pdf-pages.show{display:block}.pdf-pages::after{content:"PÁGINA " counter(page)}.report-result{margin:0!important;border:0!important;box-shadow:none!important}.report-mecanica-completa .col-date{width:14%}.report-mecanica-completa .col-desc{width:34%}.report-mecanica-completa .col-note{width:52%}.report-revisao-completa .col-date{width:14%}.report-revisao-completa .col-desc{width:54%}.report-revisao-completa .col-km{width:12%}.report-revisao-completa .col-next{width:20%}.report-revisao-completa .col-status{display:none!important}.report-pecas-completa .col-date{width:14%}.report-pecas-completa .col-name{width:12%}.report-pecas-completa .col-desc{width:18%}.report-pecas-completa .col-note{width:56%}.manutencao-geral-pdf .report-table,.manutencao-geral-pdf .report-table *{font-size:8.5px!important;line-height:1.15!important}.manutencao-geral-pdf .maintenance-category{margin:1mm 0 .55mm!important}.manutencao-geral-pdf .maintenance-category-title{font-size:12.8px!important;line-height:1.1!important;padding:.12mm .7mm!important;margin:0 0 .12mm!important}.manutencao-geral-pdf .maintenance-vehicle-title{font-size:9.6px!important;line-height:1.1!important;padding:0 1mm 0 4mm!important;margin:0!important}.manutencao-geral-pdf .report-table th,.manutencao-geral-pdf .report-table td{padding:1px 2.5px!important;line-height:1.15!important}.report-abastecimento-grouped .col-date{width:16%}.report-abastecimento-grouped .col-motorista{width:24%}.report-abastecimento-grouped .col-litros{width:12%}.report-abastecimento-grouped .col-km{width:14%}.report-abastecimento-grouped .col-valor{width:16%}.report-abastecimento-grouped .col-consumo{width:18%}.report-mecanica-grouped .col-date{width:18%}.report-mecanica-grouped .col-desc{width:38%}.report-mecanica-grouped .col-note{width:44%}.report-revisao-grouped .col-date{width:16%}.report-revisao-grouped .col-desc{width:42%}.report-revisao-grouped .col-km{width:14%}.report-revisao-grouped .col-next{width:28%}.report-pecas-grouped .col-date{width:16%}.report-pecas-grouped .col-name{width:20%}.report-pecas-grouped .col-desc{width:24%}.report-pecas-grouped .col-note{width:40%}.report-table th,.report-table td{white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important}.report-table{width:100%!important;min-width:0!important;table-layout:fixed!important}.maintenance-vehicle-title{break-after:avoid}.vehicle-report{break-inside:auto;page-break-inside:auto}</style></head><body><div class="pdf-head">'+logo+'</div>'+report+'<div id="pdfPages" class="pdf-pages"></div></body></html>');w.document.close();w.focus();const img=w.document.querySelector('.pdf-logo');const prepare=()=>{setTimeout(()=>{const reportEl=w.document.querySelector('.report-result');const pages=w.document.getElementById('pdfPages');if(reportEl&&pages){const printableHeight=680;pages.classList.toggle('show',reportEl.scrollHeight>printableHeight)}w.print()},350)};if(img&&img.complete){prepare()}else if(img){img.onload=prepare;img.onerror=prepare}else{prepare()}}
